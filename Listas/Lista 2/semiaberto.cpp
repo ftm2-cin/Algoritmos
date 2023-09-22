@@ -1,148 +1,154 @@
 #include <iostream>
-
 using namespace std;
 
-class HashTable
+struct Node
 {
-private:
-    struct Node
-    {
-        int key;
-        Node **jazidos;
-        int numJazidos;
-        int maxJazidos;
-
-        Node(int maxJazidos) : maxJazidos(maxJazidos)
-        {
-            jazidos = new Node *[maxJazidos];
-            numJazidos = 0;
-        }
-
-        ~Node()
-        {
-            delete[] jazidos;
-        }
-    };
-
-    int andares;     // Number of floors in the hash table
-    int numElements; // Number of elements in the hash table
-    Node **table;    // Array of nodes
-    int maxJazidos;  // Maximum number of "jazidos" allowed in a node
-
-    // Hash function to determine the index in the array for a given key
-    int hash(int key)
-    {
-        return key % andares;
-    }
-
-    void rehash()
-    {
-        int newAndares = andares * 2 + 1;         // New size of the hash table
-        Node **newTable = new Node *[newAndares]; // Create new table with doubled size
-        for (int i = 0; i < newAndares; ++i)
-        {
-            newTable[i] = nullptr;
-        }
-
-        // Reinsert all elements into the new table
-        for (int i = 0; i < andares; ++i)
-        {
-            if (table[i] != nullptr)
-            {
-                // Reinsert main node
-                int newIndex = table[i]->key % newAndares;
-                newTable[newIndex] = table[i];
-
-                // Reinsert collision nodes
-                for (int j = 0; j < table[i]->numJazidos; ++j)
-                {
-                    if (table[i]->jazidos[j] != nullptr)
-                    {
-                        int newCollisionIndex = table[i]->jazidos[j]->key % newAndares;
-                        newTable[newCollisionIndex] = table[i]->jazidos[j];
-                    }
-                }
-            }
-        }
-
-        // Delete the old table
-        for (int i = 0; i < andares; ++i)
-        {
-            if (table[i] != nullptr)
-            {
-                delete table[i];
-            }
-        }
-        delete[] table;
-
-        // Update the hash table properties
-        andares = newAndares;
-        table = newTable;
-    }
-
-public:
-    HashTable(int numAndares, int maxJazidos) : andares(numAndares), maxJazidos(maxJazidos)
-    {
-        table = new Node *[andares];
-        for (int i = 0; i < andares; ++i)
-        {
-            table[i] = nullptr;
-        }
-    }
-
-    ~HashTable()
-    {
-        for (int i = 0; i < andares; ++i)
-        {
-            if (table[i] != nullptr)
-            {
-                delete table[i];
-            }
-        }
-        delete[] table;
-    }
-
-    void insert(int key)
-    {
-        int index = hash(key);
-
-        if (table[index] == nullptr)
-        {
-            table[index] = new Node(maxJazidos);
-            table[index]->key = key;
-        }
-    }
-
-    // Retrieve the position of the key in the hash table and the position within the collision array
-    void get(int key)
-    {
-        int index = hash(key);
-
-        if (table[index] != nullptr)
-        {
-            if (table[index]->key == key)
-            {
-                // Found the node directly
-                cout << index << ".0" << endl;
-                return;
-            }
-            else
-            {
-                // Search for the node in the collision array
-                for (int i = 0; i < table[index]->numJazidos; ++i)
-                {
-                    if (table[index]->jazidos[i] != nullptr && table[index]->jazidos[i]->key == key)
-                    {
-                        cout << index << "." << i + 1 << endl;
-                        return;
-                    }
-                }
-            }
-        }
-
-        cout << "?.?" << endl; // Key not found
-    }
+    int key;
+    int removed;
 };
+
+int Hash(int key, int andares, int cont)
+{
+    return (key % andares + cont) % andares;
+}
+
+int insert(int key, bool print, int andares, int maxJazidos, int *qtdelementos, Node **table, int cont)
+{
+    int index = Hash(key, andares, cont);
+
+    if (qtdelementos[index] == maxJazidos)
+    {
+        cont++;
+        if (cont != andares)
+        {
+            return insert(key, print, andares, maxJazidos, qtdelementos, table, cont);
+        }
+        else
+        {
+            return -1;
+        }
+    }
+
+    int collisionIndex = 0;
+
+    while (table[index][collisionIndex].removed != -1 && table[index][collisionIndex].key <= key)
+    {
+        collisionIndex++;
+    }
+
+    for (int i = maxJazidos - 1; i > collisionIndex; i--)
+    {
+        table[index][i] = table[index][i - 1];
+    }
+
+    table[index][collisionIndex].key = key;
+    table[index][collisionIndex].removed = 0;
+    qtdelementos[index]++;
+    if (print)
+    {
+        cout << index << "." << collisionIndex << endl;
+    }
+    return 0;
+}
+
+int binarySearch(int key, int floor, int l, Node **table)
+{
+    int left = 0;
+    int right = l - 1;
+    int middle = (left + right) / 2;
+    int find = 0;
+    while (left <= right && find == 0)
+    {
+        if (table[floor][middle].key == key)
+        {
+            find = 1;
+        }
+        else if (table[floor][middle].key > key)
+        {
+            right = middle - 1;
+            middle = (left + right) / 2;
+        }
+        else
+        {
+            left = middle + 1;
+            middle = (left + right) / 2;
+        }
+    }
+    if (find == 0)
+    {
+        return -1;
+    }
+    else
+    {
+        return middle;
+    }
+}
+
+int get(int key, int andares, int maxJazidos, Node **table, int cont)
+{
+    int index = Hash(key, andares, cont);
+
+    if (table[index][0].removed == 0 && table[index][0].key == key)
+    {
+        cout << index << ".0" << endl;
+        return 0;
+    }
+
+    int result = binarySearch(key, index, maxJazidos, table);
+
+    if (result != -1)
+    {
+        if (table[index][result].removed == 1)
+        {
+            cout << "?.?" << endl;
+        }
+        else
+        {
+            cout << index << "." << result << endl;
+        }
+        return 0;
+    }
+
+    if (cont < andares - 1)
+    {
+        return get(key, andares, maxJazidos, table, cont + 1);
+    }
+    return -1;
+}
+
+int remove(int key, int andares, int maxJazidos, Node **table, int cont)
+{
+    int index = Hash(key, andares, cont);
+
+    if (table[index][0].removed == 0 && table[index][0].key == key)
+    {
+        cout << index << ".0" << endl;
+        table[index][0].removed = 1;
+        return 0;
+    }
+
+    int result = binarySearch(key, index, maxJazidos, table);
+
+    if (result != -1)
+    {
+        if (table[index][result].removed == 1)
+        {
+            cout << "?.?" << endl;
+        }
+        else
+        {
+            cout << index << "." << result << endl;
+            table[index][result].removed = 1;
+        }
+        return 0;
+    }
+
+    if (cont < andares - 1)
+    {
+        return remove(key, andares, maxJazidos, table, cont + 1);
+    }
+    return -1;
+}
 
 int main()
 {
@@ -154,7 +160,18 @@ int main()
     cin >> numAndares;
     cin >> maxJazidosPerNode;
 
-    HashTable hashTable(numAndares, maxJazidosPerNode);
+    Node **table = new Node *[numAndares];
+    int *qtdelementos = new int[numAndares];
+    for (int i = 0; i < numAndares; ++i)
+    {
+        table[i] = new Node[maxJazidosPerNode + 1];
+        qtdelementos[i] = 0;
+        for (int j = 0; j <= maxJazidosPerNode; ++j)
+        {
+            table[i][j].removed = -1;
+            table[i][j].key = 9999999;
+        }
+    }
 
     while (cin >> entrada)
     {
@@ -165,24 +182,71 @@ int main()
         else if (entrada == "ADD")
         {
             cin >> key;
-            hashTable.insert(key);
-        }
-        else if (entrada == "REM")
-        {
-            // TODO: Implement the removal logic
+            if (insert(key, true, numAndares, maxJazidosPerNode, qtdelementos, table, 0) == -1)
+            {
+                int m = numAndares * 2 + 1;
+                Node **temp = table;
+                Node **cemiterio = new Node *[m];
+                int *qtdelementosTemp = new int[m];
+
+                for (int i = 0; i < m; ++i)
+                {
+                    cemiterio[i] = new Node[maxJazidosPerNode];
+                    qtdelementosTemp[i] = 0;
+                    for (int j = 0; j < maxJazidosPerNode; ++j)
+                    {
+                        cemiterio[i][j].removed = -1;
+                        cemiterio[i][j].key = 9999999;
+                    }
+                }
+
+                table = cemiterio;
+                qtdelementos = qtdelementosTemp;
+
+                for (int i = 0; i < numAndares; ++i)
+                {
+                    for (int j = 0; j < maxJazidosPerNode; ++j)
+                    {
+                        if (temp[i][j].removed == 0)
+                        {
+                            insert(temp[i][j].key, false, m, maxJazidosPerNode, qtdelementos, table, 0);
+                        }
+                    }
+                }
+
+                for (int i = 0; i < numAndares; ++i)
+                {
+                    delete[] temp[i];
+                }
+                delete[] temp;
+
+                numAndares = m;
+                insert(key, true, numAndares, maxJazidosPerNode, qtdelementos, table, 0);
+            }
         }
         else if (entrada == "QRY")
         {
             cin >> key;
-            hashTable.get(key);
+            if (get(key, numAndares, maxJazidosPerNode, table, 0) == -1)
+            {
+                cout << "?.?" << endl;
+            }
+        }
+        else if (entrada == "REM")
+        {
+            cin >> key;
+            if (remove(key, numAndares, maxJazidosPerNode, table, 0) == -1)
+            {
+                cout << "?.?" << endl;
+            }
         }
     }
+    for (int i = 0; i < numAndares; ++i)
+    {
+        delete[] table[i];
+    }
+    delete[] table;
+    delete[] qtdelementos;
 
     return 0;
 }
-
-// ADICIONAR REMOÇÃO
-// MUDAR PARA VERIFICAR SE TDS JAZIDOS ESTÃO OCUPADOS E NÃO SO DA ARRAY
-// ADICIONAR DOUBLE HASH
-// ADICIONAR ADD EM FORMA CRESCENTE
-// ADICIONAR BINARY SEARCH
